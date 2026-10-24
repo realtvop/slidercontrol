@@ -71,7 +71,8 @@ public final class ProgressSliderControl: UIView {
 
         for label in [leadingTextLabel, trailingTextLabel] {
             label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-            label.textColor = .secondaryLabel
+            label.textColor = .label
+            label.alpha = 0.4
             label.lineBreakMode = .byTruncatingTail
         }
 
@@ -113,18 +114,24 @@ public final class ProgressSliderControl: UIView {
     private func setActive(_ active: Bool) {
         layoutIfNeeded()
         isActive = active
+        for label in [leadingTextLabel, trailingTextLabel] {
+            label.font = .monospacedDigitSystemFont(ofSize: 11, weight: active ? .semibold : .regular)
+        }
         UIView.animate(withDuration: active ? 0.2 : 0.3, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
             self.updateLabelTransforms()
+            self.leadingTextLabel.alpha = active ? 1 : 0.4
+            self.trailingTextLabel.alpha = active ? 1 : 0.4
         }
     }
 
     private func updateLabelTransforms() {
-        let scale: CGFloat = isActive ? 1.1 : 1
+        let scale: CGFloat = isActive ? 12 / 11 : 1
         let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .leftToRight ? 1 : -1
+        let outset = isActive ? slider.activeTrackOutset : 0
         // Anchor the text to the outside edges. The center stack is never transformed.
         leadingTextLabel.transform = CGAffineTransform(a: scale, b: 0, c: 0, d: scale,
-            tx: direction * leadingTextLabel.bounds.width * (scale - 1) / 2, ty: 0)
+            tx: direction * (leadingTextLabel.bounds.width * (scale - 1) / 2 - outset), ty: 0)
         trailingTextLabel.transform = CGAffineTransform(a: scale, b: 0, c: 0, d: scale,
-            tx: -direction * trailingTextLabel.bounds.width * (scale - 1) / 2, ty: 0)
+            tx: -direction * (trailingTextLabel.bounds.width * (scale - 1) / 2 - outset), ty: 0)
     }
 }

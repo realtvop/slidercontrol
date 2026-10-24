@@ -21,21 +21,25 @@ public struct ProgressSliderControlView<Value: BinaryFloatingPoint, Center: View
             configuredSlider.frame(height: 24)
             HStack(spacing: 8) {
                 Text(leadingText)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
+                    .font(Font(UIFont.monospacedDigitSystemFont(ofSize: 11, weight: isActive ? .semibold : .regular)))
+                    .foregroundColor(Color(UIColor.label))
+                    .opacity(isActive ? 1 : 0.4)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .scaleEffect(isActive ? 1.1 : 1, anchor: layoutDirection == .leftToRight ? .leading : .trailing)
+                    .scaleEffect(isActive ? 12 / 11 : 1, anchor: layoutDirection == .leftToRight ? .leading : .trailing)
+                    .offset(x: isActive ? (layoutDirection == .leftToRight ? -8 : 8) : 0)
 
                 // Scale only the labels. Center content keeps its own layout and interaction.
                 HStack(spacing: 0) { center }.layoutPriority(1)
 
                 Text(trailingText)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
+                    .font(Font(UIFont.monospacedDigitSystemFont(ofSize: 11, weight: isActive ? .semibold : .regular)))
+                    .foregroundColor(Color(UIColor.label))
+                    .opacity(isActive ? 1 : 0.4)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                    .scaleEffect(isActive ? 1.1 : 1, anchor: layoutDirection == .leftToRight ? .trailing : .leading)
+                    .scaleEffect(isActive ? 12 / 11 : 1, anchor: layoutDirection == .leftToRight ? .trailing : .leading)
+                    .offset(x: isActive ? (layoutDirection == .leftToRight ? 8 : -8) : 0)
             }
             .frame(minHeight: 20)
         }
@@ -180,7 +184,7 @@ private final class VolumeAccessoryController: UIViewController {
     }
 
     private static func icon(_ image: Image, layoutDirection: LayoutDirection, colorScheme: ColorScheme) -> AnyView {
-        AnyView(image.font(.system(size: 14)).foregroundColor(.secondary)
+        AnyView(image.font(.system(size: 14)).foregroundColor(Color(UIColor.label))
             .frame(width: 20, height: 20).accessibility(hidden: true)
             .environment(\.layoutDirection, layoutDirection).environment(\.colorScheme, colorScheme))
     }

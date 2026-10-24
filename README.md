@@ -92,13 +92,16 @@ SliderControlView(value: $playbackProgress, in: 0...duration)
     }
 ```
 
-Only the outer text labels grow slightly while dragging. The center content keeps
-its own size. Apply slider color, feedback and continuous
+While dragging, the outer text labels grow from 11 to 12 points, become semibold
+and brighten. They follow the track's slight outward expansion. The center content
+keeps its own size. Apply slider color, feedback and continuous
 update modifiers before `.progressLabels(...)` or `.volumeIcons(...)`. These
 variants select `.progress` and `.volume` behavior respectively and support RTL.
 Pass `minimum:` and `maximum:` images to `.volumeIcons(...)` to customize its icons.
-At either volume limit, the adjacent icon follows the track's stretch and spring
-return. This stays synchronized during inertia and in RTL layouts too.
+Volume icons brighten and grow slightly during interaction. Reaching either limit
+briefly enlarges only that end's icon, then returns it to its normal active size,
+even if the finger stays down. The icon also follows the track's stretch and spring
+return, including during inertia and in RTL layouts.
 
 UIKit offers the same compositions. The underlying `slider` exposes the existing
 value, target-action, publisher, color and editing callback APIs:
