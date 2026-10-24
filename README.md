@@ -69,6 +69,8 @@ interrupts inertia, while values supplied during a drag are ignored.
 
 #### Text and icons
 
+![Progress text with a fixed-size center label and volume icons](./Media/accessories.gif)
+
 Add text below a progress slider, or icons beside a volume slider:
 
 ```swift
@@ -85,12 +87,13 @@ state. An optional `ViewBuilder` places custom content between the labels:
 ```swift
 SliderControlView(value: $playbackProgress, in: 0...duration)
     .progressLabels(leading: elapsedText, trailing: remainingText) {
-        Button("1×") { /* change playback speed */ }
+        Text("Lossless")
+            .font(.system(size: 11))
     }
 ```
 
-Only the text labels grow slightly while dragging. The center content keeps its
-own size and remains interactive. Apply slider color, feedback and continuous
+Only the outer text labels grow slightly while dragging. The center content keeps
+its own size. Apply slider color, feedback and continuous
 update modifiers before `.progressLabels(...)` or `.volumeIcons(...)`. These
 variants select `.progress` and `.volume` behavior respectively and support RTL.
 Pass `minimum:` and `maximum:` images to `.volumeIcons(...)` to customize its icons.
@@ -105,9 +108,10 @@ progress.slider.value = 86
 progress.leadingText = "1:26"
 progress.trailingText = "−2:34"
 
-let rateButton = UIButton(type: .system)
-rateButton.setTitle("1×", for: .normal)
-progress.centerAccessoryView = rateButton
+let centerLabel = UILabel()
+centerLabel.text = "Lossless"
+centerLabel.font = .systemFont(ofSize: 11)
+progress.centerAccessoryView = centerLabel
 
 let volume = VolumeSliderControl()
 volume.slider.value = 0.5
