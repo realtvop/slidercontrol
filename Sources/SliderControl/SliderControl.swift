@@ -108,11 +108,7 @@ open class SliderControl: UIControl {
 
     // Visual updates must continue even when the value is clamped at a limit.
     var onTrackStretchChanged: ((SliderTrackStretch) -> Void)?
-    var onBoundaryReached: ((Bool) -> Void)?
     private var trackStretch = SliderTrackStretch.zero
-    private var notifiedBoundary: CGFloat?
-
-    var activeTrackOutset: CGFloat { behavior == .progress ? 8 : 6 }
 
     public override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: Self.intrinsicHeight)
@@ -120,7 +116,7 @@ open class SliderControl: UIControl {
 
     private static let intrinsicHeight: CGFloat = 24
     private static let defaultTrackHeight: CGFloat = 7
-    private static let enlargedTrackHeight: CGFloat = 17
+    private static let enlargedTrackHeight: CGFloat = 12
     private static let internalValueRange: ClosedRange<Float> = 0...1
 
     private let trackView: UIView = .init()
@@ -129,8 +125,6 @@ open class SliderControl: UIControl {
     private let valueSubject: PassthroughSubject<Float, Never> = .init()
 
     private var heightConstraint: NSLayoutConstraint = .init()
-    private var leadingConstraint: NSLayoutConstraint = .init()
-    private var trailingConstraint: NSLayoutConstraint = .init()
     private var progressConstraint: NSLayoutConstraint = .init()
     private var normalizedProgress: CGFloat = 0.5
     private var isEditing = false
@@ -191,8 +185,6 @@ open class SliderControl: UIControl {
             trackView.semanticContentAttribute = direction
             progressView.semanticContentAttribute = direction
         }
-        leadingConstraint.constant = isEditing ? -activeTrackOutset : 0
-        trailingConstraint.constant = isEditing ? activeTrackOutset : 0
         super.layoutSubviews()
 
         trackView.layer.cornerRadius = trackView.bounds.height / 2
@@ -209,7 +201,6 @@ open class SliderControl: UIControl {
         lastTouchTimestamp = touch.timestamp
         lastMovementTimestamp = touch.timestamp
         dragVelocity = 0
-        notifiedBoundary = nil
         isEditing = true
         hasPendingValueChange = false
         sendActions(for: .editingDidBegin)
@@ -329,9 +320,6 @@ open class SliderControl: UIControl {
             return
         }
         let stretch = motion.stretch(trackWidth: width)
-        if isEditing, stretch.amount > 0 {
-            notifyBoundary(stretch.edge < 0 ? 0 : 1)
-        }
         trackView.transform = CGAffineTransform(
             a: 1 + stretch.amount / width, b: 0, c: 0,
             d: 1 - min(abs(stretch.amount) / 12, 1) * 0.08,
@@ -361,27 +349,16 @@ open class SliderControl: UIControl {
         setNeedsLayout()
         layoutIfNeeded()
 
-        if newProgress == 0 || newProgress == 1 {
-            notifyBoundary(newProgress)
-        } else {
-            notifiedBoundary = nil
+        switch newProgress {
+            case 0: feedbackGenerator?.generateMinimumValueFeedback()
+            case 1: feedbackGenerator?.generateMaximumValueFeedback()
+            default: break
         }
 
         hasPendingValueChange = true
         if isContinuous {
             sendActions(for: .valueChanged)
         }
-    }
-
-    private func notifyBoundary(_ boundary: CGFloat) {
-        guard notifiedBoundary != boundary else { return }
-        notifiedBoundary = boundary
-        if boundary == 0 {
-            feedbackGenerator?.generateMinimumValueFeedback()
-        } else {
-            feedbackGenerator?.generateMaximumValueFeedback()
-        }
-        onBoundaryReached?(boundary == 0)
     }
 
     private func setup() {
@@ -403,15 +380,13 @@ open class SliderControl: UIControl {
         trackView.addSubview(progressView)
 
         heightConstraint = trackView.heightAnchor.constraint(equalToConstant: Self.defaultTrackHeight)
-        leadingConstraint = trackView.leadingAnchor.constraint(equalTo: leadingAnchor)
-        trailingConstraint = trackView.trailingAnchor.constraint(equalTo: trailingAnchor)
         progressConstraint = progressView.widthAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
             heightConstraint,
             trackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            leadingConstraint,
-            trailingConstraint,
+            trackView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            trackView.trailingAnchor.constraint(equalTo: trailingAnchor),
 
             trackLayoutGuide.topAnchor.constraint(equalTo: trackView.topAnchor),
             trackLayoutGuide.leadingAnchor.constraint(equalTo: trackView.leadingAnchor),
