@@ -4,7 +4,7 @@
 
 SliderControl is a small Swift Package aiming to recreate volume and track sliders found in Apple Music on iOS 16 and later.
 
-![Default configuration](./Media/default.gif)
+![Progress and volume sliders](./Media/default.gif)
 
 ## Usage
 
@@ -102,8 +102,9 @@ SliderControlView(value: $value)
     .progressColor(.blue, enlarged: .purple)
 ```
 
-These customizations allow you to create different appearances for different states of the slider. Here's an example:  
-![Different colors](./Media/colors.gif)
+These customizations allow you to create different appearances for different states of the slider. Here's an example showing both Progress and Volume modes:
+
+![Custom colors in both modes](./Media/colors.gif)
 
 #### Haptic feedback
 
@@ -187,7 +188,7 @@ SliderControlView(value: $sliderValue) { isEditing in
 
 `SliderControl` and its SwiftUI wrapper `SliderControlView` support right-to-left languages.
 
-![RTL Example](./Media/rtl.gif)
+![Progress and volume sliders in RTL](./Media/rtl.gif)
 
 [Platform badge]: https://img.shields.io/badge/Platform-iOS-green
 [OS badge]: https://img.shields.io/badge/iOS-13.0+-green
