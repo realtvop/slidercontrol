@@ -11,6 +11,15 @@ import UIKit
 
 /// Implements a slider control similar to one found in Apple Music on iOS 16.
 open class SliderControl: UIControl {
+    /// Progress stops at the finger; volume also coasts and stretches at its limits.
+    public enum Behavior {
+        case progress
+        case volume
+    }
+
+    /// The interaction to reproduce. Defaults to `.progress`.
+    public var behavior: Behavior = .progress
+
     /// Indicates whether changes in the slider's value generate continuous update events.
     /// Default value of this property is `true`.
     public var isContinuous: Bool = true
@@ -52,20 +61,22 @@ open class SliderControl: UIControl {
     }
 
     /// Range of slider values. Default value is `0...1`.
-    public var valueRange: ClosedRange<Float> = 0...1
+    public var valueRange: ClosedRange<Float> = 0...1 {
+        didSet {
+            let previousValue = Self.internalValueRange.convert(value: Float(normalizedProgress), to: oldValue)
+            setValue(previousValue)
+        }
+    }
 
     /// The slider's current value in range set by `valueRange` property.
     public var value: Float {
         get {
-            let progress = Float(progressView.bounds.width / trackView.bounds.width)
-            return Self.internalValueRange.convert(value: progress, to: valueRange)
+            Self.internalValueRange.convert(value: Float(normalizedProgress), to: valueRange)
         }
         set {
             guard !isTracking else { return }
 
-            let clampedValue = max(valueRange.lowerBound, min(valueRange.upperBound, newValue))
-            let convertedValue = valueRange.convert(value: clampedValue, to: Self.internalValueRange)
-            progressConstraint = progressConstraint.constraintWithMultiplier(CGFloat(convertedValue))
+            setValue(newValue)
         }
     }
 
@@ -96,6 +107,8 @@ open class SliderControl: UIControl {
 
     private var heightConstraint: NSLayoutConstraint = .init()
     private var progressConstraint: NSLayoutConstraint = .init()
+    private var normalizedProgress: CGFloat = 0.5
+    private var isEditing = false
     private var hasPreviousSessionChangedProgress: Bool = false
 
     override public init(frame: CGRect) {
@@ -114,9 +127,14 @@ open class SliderControl: UIControl {
         super.layoutSubviews()
 
         trackView.layer.cornerRadius = trackView.bounds.height / 2
+        progressConstraint.constant = normalizedProgress * trackView.bounds.width
+        trackView.layoutIfNeeded()
     }
 
     public override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        guard isEnabled else { return false }
+        isEditing = true
+        hasPreviousSessionChangedProgress = false
         onEditingChanged?(true)
         enlargeTrack()
         feedbackGenerator?.preapre()
@@ -128,35 +146,24 @@ open class SliderControl: UIControl {
         let previousLocation = touch.previousLocation(in: self)
         let location = touch.location(in: self)
         let translationX = location.x - previousLocation.x
-        let newWidth = effectiveUserInterfaceLayoutDirection == .leftToRight
-            ? progressView.bounds.width + translationX
-            : progressView.bounds.width - translationX
-
-        let progress = progressView.bounds.width / trackView.bounds.width
-        let newProgress = max(0, min(1, newWidth / trackView.bounds.width))
-
-        if newProgress != progress {
-            switch newProgress {
-                case 0:
-                    feedbackGenerator?.generateMinimumValueFeedback()
-                case 1:
-                    feedbackGenerator?.generateMaximumValueFeedback()
-                default:
-                    break
-            }
-        }
-
-        progressConstraint = progressConstraint.constraintWithMultiplier(newProgress)
-
-        hasPreviousSessionChangedProgress = true
-        if isContinuous {
-            sendActions(for: .valueChanged)
-        }
+        guard trackView.bounds.width > 0 else { return true }
+        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .leftToRight ? 1 : -1
+        updateProgress(normalizedProgress + direction * translationX / trackView.bounds.width)
 
         return true
     }
 
     public override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        finishEditing()
+    }
+
+    public override func cancelTracking(with event: UIEvent?) {
+        finishEditing()
+    }
+
+    private func finishEditing() {
+        guard isEditing else { return }
+        isEditing = false
         reduceTrack()
 
         if hasPreviousSessionChangedProgress {
@@ -167,15 +174,30 @@ open class SliderControl: UIControl {
         onEditingChanged?(false)
     }
 
-    public override func cancelTracking(with event: UIEvent?) {
-        reduceTrack()
+    private func setValue(_ newValue: Float) {
+        guard newValue.isFinite else { return }
+        let clampedValue = max(valueRange.lowerBound, min(valueRange.upperBound, newValue))
+        normalizedProgress = CGFloat(valueRange.convert(value: clampedValue, to: Self.internalValueRange))
+        setNeedsLayout()
+    }
 
-        if hasPreviousSessionChangedProgress {
-            hasPreviousSessionChangedProgress = false
-            sendActions(for: .valueChanged)
+    private func updateProgress(_ progress: CGFloat) {
+        let newProgress = max(0, min(1, progress))
+        guard newProgress != normalizedProgress else { return }
+        normalizedProgress = newProgress
+        setNeedsLayout()
+        layoutIfNeeded()
+
+        switch newProgress {
+            case 0: feedbackGenerator?.generateMinimumValueFeedback()
+            case 1: feedbackGenerator?.generateMaximumValueFeedback()
+            default: break
         }
 
-        onEditingChanged?(false)
+        hasPreviousSessionChangedProgress = true
+        if isContinuous {
+            sendActions(for: .valueChanged)
+        }
     }
 
     private func setup() {
@@ -197,7 +219,7 @@ open class SliderControl: UIControl {
         trackView.addSubview(progressView)
 
         heightConstraint = trackView.heightAnchor.constraint(equalToConstant: Self.defaultTrackHeight)
-        progressConstraint = progressView.widthAnchor.constraint(equalTo: trackView.widthAnchor, multiplier: 0.5)
+        progressConstraint = progressView.widthAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
             heightConstraint,
@@ -256,12 +278,12 @@ open class SliderControl: UIControl {
     }
 
     private func updateColors() {
-        if heightConstraint.constant == Self.defaultTrackHeight {
+        if !isEditing {
             trackView.backgroundColor = defaultTrackColor
             progressView.backgroundColor = defaultProgressColor
         } else {
-            enlargedTrackColor.map { trackView.backgroundColor = $0 }
-            enlargedProgressColor.map { progressView.backgroundColor = $0 }
+            trackView.backgroundColor = enlargedTrackColor ?? defaultTrackColor
+            progressView.backgroundColor = enlargedProgressColor ?? defaultProgressColor
         }
     }
 
