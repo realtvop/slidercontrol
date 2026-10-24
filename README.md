@@ -97,6 +97,8 @@ its own size. Apply slider color, feedback and continuous
 update modifiers before `.progressLabels(...)` or `.volumeIcons(...)`. These
 variants select `.progress` and `.volume` behavior respectively and support RTL.
 Pass `minimum:` and `maximum:` images to `.volumeIcons(...)` to customize its icons.
+At either volume limit, the adjacent icon follows the track's stretch and spring
+return. This stays synchronized during inertia and in RTL layouts too.
 
 UIKit offers the same compositions. The underlying `slider` exposes the existing
 value, target-action, publisher, color and editing callback APIs:
