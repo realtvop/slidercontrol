@@ -199,6 +199,7 @@ open class SliderControl: UIControl {
         dragVelocity = 0
         isEditing = true
         hasPendingValueChange = false
+        sendActions(for: .editingDidBegin)
         onEditingChanged?(true)
         enlargeTrack()
         feedbackGenerator?.preapre()
@@ -243,6 +244,7 @@ open class SliderControl: UIControl {
         isEditing = false
         reduceTrack()
 
+        sendActions(for: .editingDidEnd)
         onEditingChanged?(false)
     }
 
