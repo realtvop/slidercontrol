@@ -18,7 +18,13 @@ open class SliderControl: UIControl {
     }
 
     /// The interaction to reproduce. Defaults to `.progress`.
-    public var behavior: Behavior = .progress
+    public var behavior: Behavior = .progress {
+        didSet {
+            guard behavior != oldValue else { return }
+            stopMotion()
+            finishValueChanges()
+        }
+    }
 
     /// Indicates whether changes in the slider's value generate continuous update events.
     /// Default value of this property is `true`.
@@ -63,7 +69,10 @@ open class SliderControl: UIControl {
     /// Range of slider values. Default value is `0...1`.
     public var valueRange: ClosedRange<Float> = 0...1 {
         didSet {
+            guard valueRange != oldValue else { return }
             let previousValue = Self.internalValueRange.convert(value: Float(normalizedProgress), to: oldValue)
+            stopMotion()
+            finishValueChanges()
             setValue(previousValue)
         }
     }
@@ -74,8 +83,10 @@ open class SliderControl: UIControl {
             Self.internalValueRange.convert(value: Float(normalizedProgress), to: valueRange)
         }
         set {
-            guard !isTracking else { return }
+            guard !isTracking, !isEditing, newValue != value, newValue.isFinite else { return }
 
+            stopMotion()
+            finishValueChanges()
             setValue(newValue)
         }
     }
@@ -110,6 +121,29 @@ open class SliderControl: UIControl {
     private var normalizedProgress: CGFloat = 0.5
     private var isEditing = false
     private var hasPreviousSessionChangedProgress: Bool = false
+    private var motion = SliderMotion()
+    private var displayLink: CADisplayLink?
+    private var lastFrameTimestamp: TimeInterval = 0
+    private var lastTouchTimestamp: TimeInterval = 0
+    private var lastMovementTimestamp: TimeInterval = 0
+    private var lastTouchX: CGFloat = 0
+    private var dragVelocity: CGFloat = 0
+
+    private final class DisplayLinkTarget: NSObject {
+        weak var control: SliderControl?
+
+        init(control: SliderControl) {
+            self.control = control
+        }
+
+        @objc func tick(_ link: CADisplayLink) {
+            guard let control = control else {
+                link.invalidate()
+                return
+            }
+            control.advanceMotion(link)
+        }
+    }
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
@@ -123,16 +157,36 @@ open class SliderControl: UIControl {
         setup()
     }
 
+    deinit {
+        displayLink?.invalidate()
+    }
+
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            stopMotion()
+            finishEditing()
+            finishValueChanges()
+        }
+    }
+
     public override func layoutSubviews() {
         super.layoutSubviews()
 
         trackView.layer.cornerRadius = trackView.bounds.height / 2
         progressConstraint.constant = normalizedProgress * trackView.bounds.width
         trackView.layoutIfNeeded()
+        updateStretch()
     }
 
     public override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         guard isEnabled else { return false }
+        stopMotion()
+        finishValueChanges()
+        lastTouchX = touch.location(in: self).x
+        lastTouchTimestamp = touch.timestamp
+        lastMovementTimestamp = touch.timestamp
+        dragVelocity = 0
         isEditing = true
         hasPreviousSessionChangedProgress = false
         onEditingChanged?(true)
@@ -143,22 +197,35 @@ open class SliderControl: UIControl {
     }
 
     public override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        let previousLocation = touch.previousLocation(in: self)
-        let location = touch.location(in: self)
-        let translationX = location.x - previousLocation.x
-        guard trackView.bounds.width > 0 else { return true }
-        let direction: CGFloat = effectiveUserInterfaceLayoutDirection == .leftToRight ? 1 : -1
-        updateProgress(normalizedProgress + direction * translationX / trackView.bounds.width)
-
+        updateTracking(touch)
         return true
     }
 
     public override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+        guard isEditing else { return }
+        if let touch = touch {
+            updateTracking(touch)
+            if touch.timestamp - lastMovementTimestamp > 0.08 {
+                dragVelocity = 0
+            }
+        } else {
+            dragVelocity = 0
+        }
+        if behavior == .volume && motion.release(velocity: dragVelocity) {
+            startMotion()
+        } else {
+            stopMotion()
+        }
         finishEditing()
+        if displayLink == nil {
+            finishValueChanges()
+        }
     }
 
     public override func cancelTracking(with event: UIEvent?) {
+        stopMotion()
         finishEditing()
+        finishValueChanges()
     }
 
     private func finishEditing() {
@@ -166,18 +233,87 @@ open class SliderControl: UIControl {
         isEditing = false
         reduceTrack()
 
-        if hasPreviousSessionChangedProgress {
-            hasPreviousSessionChangedProgress = false
-            sendActions(for: .valueChanged)
-        }
-
         onEditingChanged?(false)
+    }
+
+    private func finishValueChanges() {
+        guard hasPreviousSessionChangedProgress else { return }
+        hasPreviousSessionChangedProgress = false
+        sendActions(for: .valueChanged)
+    }
+
+    private var layoutDirection: CGFloat {
+        effectiveUserInterfaceLayoutDirection == .leftToRight ? 1 : -1
+    }
+
+    private func updateTracking(_ touch: UITouch) {
+        guard isEditing else { return }
+        let x = touch.location(in: self).x
+        let elapsed = touch.timestamp - lastTouchTimestamp
+        let width = trackView.bounds.width
+        let translation = width > 0 ? (x - lastTouchX) * layoutDirection / width : 0
+        if elapsed > 0 {
+            let velocity = translation / CGFloat(elapsed)
+            let weight = 1 - exp(-CGFloat(elapsed) / 0.025)
+            dragVelocity += weight * (velocity - dragVelocity)
+        }
+        if translation != 0 {
+            lastMovementTimestamp = touch.timestamp
+        }
+        lastTouchX = x
+        lastTouchTimestamp = touch.timestamp
+        motion.drag(by: translation, allowsOvershoot: behavior == .volume)
+        updateProgress(motion.progress)
+        updateStretch()
+    }
+
+    private func startMotion() {
+        let link = CADisplayLink(target: DisplayLinkTarget(control: self), selector: #selector(DisplayLinkTarget.tick(_:)))
+        displayLink = link
+        lastFrameTimestamp = 0
+        link.add(to: .main, forMode: .common)
+    }
+
+    private func advanceMotion(_ link: CADisplayLink) {
+        let elapsed = lastFrameTimestamp == 0 ? link.targetTimestamp - link.timestamp : link.timestamp - lastFrameTimestamp
+        lastFrameTimestamp = link.timestamp
+        let isMoving = motion.advance(by: elapsed)
+        updateProgress(motion.progress)
+        // A value callback may have interrupted this animation.
+        guard displayLink === link else { return }
+        updateStretch()
+        if !isMoving {
+            stopMotion()
+            finishValueChanges()
+        }
+    }
+
+    private func stopMotion() {
+        displayLink?.invalidate()
+        displayLink = nil
+        motion.reset(to: normalizedProgress)
+        trackView.transform = .identity
+    }
+
+    private func updateStretch() {
+        let width = trackView.bounds.width
+        guard behavior == .volume, width > 0 else {
+            trackView.transform = .identity
+            return
+        }
+        let stretch = motion.stretch(trackWidth: width)
+        trackView.transform = CGAffineTransform(
+            a: 1 + stretch.amount / width, b: 0, c: 0,
+            d: 1 - min(abs(stretch.amount) / 12, 1) * 0.08,
+            tx: stretch.edge * layoutDirection * stretch.amount / 2, ty: 0
+        )
     }
 
     private func setValue(_ newValue: Float) {
         guard newValue.isFinite else { return }
         let clampedValue = max(valueRange.lowerBound, min(valueRange.upperBound, newValue))
         normalizedProgress = CGFloat(valueRange.convert(value: clampedValue, to: Self.internalValueRange))
+        motion.reset(to: normalizedProgress)
         setNeedsLayout()
     }
 
@@ -250,7 +386,7 @@ open class SliderControl: UIControl {
             delay: 0,
             usingSpringWithDamping: 1,
             initialSpringVelocity: 0,
-            options: [.curveEaseIn, .allowAnimatedContent, .allowUserInteraction]
+            options: [.curveEaseIn, .beginFromCurrentState, .allowAnimatedContent, .allowUserInteraction]
         ) { [unowned self] in
             enlargedTrackColor.map { trackView.backgroundColor = $0 }
             enlargedProgressColor.map { progressView.backgroundColor = $0 }
@@ -268,7 +404,7 @@ open class SliderControl: UIControl {
             delay: 0,
             usingSpringWithDamping: 1,
             initialSpringVelocity: 1,
-            options: [.curveEaseOut, .allowAnimatedContent, .allowUserInteraction]
+            options: [.curveEaseOut, .beginFromCurrentState, .allowAnimatedContent, .allowUserInteraction]
         ) { [unowned self] in
             trackView.backgroundColor = defaultTrackColor
             progressView.backgroundColor = defaultProgressColor
