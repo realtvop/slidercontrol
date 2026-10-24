@@ -33,6 +33,40 @@ var body: some View {
 ```
 
 ## Customization
+#### Progress and volume behavior
+
+Choose the interaction with `behavior`. The default is `.progress`, preserving
+the existing drag behavior.
+
+| Behavior | After release | Dragging past either limit |
+| --- | --- | --- |
+| `.progress` | Stops immediately | Clamps without stretching |
+| `.volume` | Coasts according to release velocity | Resists, stretches slightly, then springs back |
+
+The volume bounce only changes the track's appearance. Values and published
+updates always stay inside `valueRange`. Both behaviors support RTL.
+
+UIKit:
+```swift
+progressSlider.behavior = .progress
+volumeSlider.behavior = .volume
+```
+
+SwiftUI:
+```swift
+SliderControlView(value: $playbackProgress, in: 0...duration)
+SliderControlView(value: $volume, behavior: .volume)
+// Equivalent modifier:
+SliderControlView(value: $volume).behavior(.volume)
+```
+
+With `isContinuous = true` (SwiftUI: `.continuouslyUpdatesValue(true)`), volume
+continues sending value updates during inertia. With `false`, it sends the final
+value when motion settles. `onEditingChanged(false)` still fires when the finger
+lifts. Touching again interrupts inertia; cancellation and removal from the
+window stop motion immediately. Setting a different value programmatically also
+interrupts inertia, while values supplied during a drag are ignored.
+
 #### Track color
 
 Slider's track color can be customized by changing the `defaultTrackColor` and the `enlargedTrackColor` properties. By default `enlargedTrackColor` property is set to `nil`, so the slider won't change the track color upon interaction. However, by setting different colors, you can configure the slider to change its track color when user interacts with it.

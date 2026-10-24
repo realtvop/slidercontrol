@@ -27,6 +27,7 @@ open class SliderControl: UIControl {
     }
 
     /// Indicates whether changes in the slider's value generate continuous update events.
+    /// Volume includes inertial updates; when `false`, the final event waits for settling.
     /// Default value of this property is `true`.
     public var isContinuous: Bool = true
     /// A layout guide that follows track size changes in different states.
@@ -72,7 +73,7 @@ open class SliderControl: UIControl {
             guard valueRange != oldValue else { return }
             let previousValue = Self.internalValueRange.convert(value: Float(normalizedProgress), to: oldValue)
             stopMotion()
-            finishValueChanges()
+            hasPendingValueChange = false
             setValue(previousValue)
         }
     }
@@ -86,7 +87,7 @@ open class SliderControl: UIControl {
             guard !isTracking, !isEditing, newValue != value, newValue.isFinite else { return }
 
             stopMotion()
-            finishValueChanges()
+            hasPendingValueChange = false
             setValue(newValue)
         }
     }
@@ -101,6 +102,9 @@ open class SliderControl: UIControl {
     public var valuePublisher: AnyPublisher<Float, Never> {
         valueSubject.eraseToAnyPublisher()
     }
+
+    // Lets the SwiftUI wrapper distinguish a stale binding from an external edit.
+    var isAnimatingValue: Bool { displayLink != nil }
 
     public override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: Self.intrinsicHeight)
@@ -120,7 +124,7 @@ open class SliderControl: UIControl {
     private var progressConstraint: NSLayoutConstraint = .init()
     private var normalizedProgress: CGFloat = 0.5
     private var isEditing = false
-    private var hasPreviousSessionChangedProgress: Bool = false
+    private var hasPendingValueChange = false
     private var motion = SliderMotion()
     private var displayLink: CADisplayLink?
     private var lastFrameTimestamp: TimeInterval = 0
@@ -171,6 +175,12 @@ open class SliderControl: UIControl {
     }
 
     public override func layoutSubviews() {
+        let direction: UISemanticContentAttribute = effectiveUserInterfaceLayoutDirection == .leftToRight
+            ? .forceLeftToRight : .forceRightToLeft
+        if trackView.semanticContentAttribute != direction {
+            trackView.semanticContentAttribute = direction
+            progressView.semanticContentAttribute = direction
+        }
         super.layoutSubviews()
 
         trackView.layer.cornerRadius = trackView.bounds.height / 2
@@ -188,7 +198,7 @@ open class SliderControl: UIControl {
         lastMovementTimestamp = touch.timestamp
         dragVelocity = 0
         isEditing = true
-        hasPreviousSessionChangedProgress = false
+        hasPendingValueChange = false
         onEditingChanged?(true)
         enlargeTrack()
         feedbackGenerator?.preapre()
@@ -237,8 +247,8 @@ open class SliderControl: UIControl {
     }
 
     private func finishValueChanges() {
-        guard hasPreviousSessionChangedProgress else { return }
-        hasPreviousSessionChangedProgress = false
+        guard hasPendingValueChange else { return }
+        hasPendingValueChange = false
         sendActions(for: .valueChanged)
     }
 
@@ -330,7 +340,7 @@ open class SliderControl: UIControl {
             default: break
         }
 
-        hasPreviousSessionChangedProgress = true
+        hasPendingValueChange = true
         if isContinuous {
             sendActions(for: .valueChanged)
         }
