@@ -166,6 +166,10 @@ private final class VolumeAccessoryController: UIViewController {
     }
 
     private func embed(_ host: UIHostingController<AnyView>, in container: UIView) {
+        if #available(iOS 16.4, *) {
+            // These embedded icons follow the track's bounds, not the screen's safe area.
+            host.safeAreaRegions = []
+        }
         addChild(host)
         host.view.backgroundColor = .clear
         host.view.translatesAutoresizingMaskIntoConstraints = false
