@@ -11,16 +11,16 @@ import SwiftUI
 public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
     public typealias UIViewType = SliderControl
 
-    public class Coordinator<U: BinaryFloatingPoint>: NSObject {
-        @Binding private var value: U
-        private var lastValue: U
+    public class Coordinator: NSObject {
+        @Binding private var value: T
+        private var lastValue: T
 
-        init(value: Binding<U>) {
+        init(value: Binding<T>) {
             _value = value
             lastValue = value.wrappedValue
         }
 
-        func update(value: Binding<U>) -> Bool {
+        func update(value: Binding<T>) -> Bool {
             let changed = value.wrappedValue != lastValue
             lastValue = value.wrappedValue
             _value = value
@@ -32,7 +32,7 @@ public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
         }
 
         @objc func handleValueChange(control: SliderControl) {
-            lastValue = U(control.value)
+            lastValue = T(control.value)
             value = lastValue
         }
     }
@@ -95,7 +95,7 @@ public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
         control.setContentHuggingPriority(.defaultHigh, for: .vertical)
     }
 
-    public func makeCoordinator() -> Coordinator<T> {
+    public func makeCoordinator() -> Coordinator {
         Coordinator(value: $value)
     }
 
