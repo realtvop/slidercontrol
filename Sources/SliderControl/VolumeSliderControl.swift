@@ -36,8 +36,10 @@ public final class VolumeSliderControl: UIView {
     public override func layoutSubviews() {
         let direction: UISemanticContentAttribute = effectiveUserInterfaceLayoutDirection == .leftToRight
             ? .forceLeftToRight : .forceRightToLeft
-        stack.semanticContentAttribute = direction
-        slider.semanticContentAttribute = direction
+        if stack.semanticContentAttribute != direction {
+            stack.semanticContentAttribute = direction
+            slider.semanticContentAttribute = direction
+        }
         super.layoutSubviews()
     }
 

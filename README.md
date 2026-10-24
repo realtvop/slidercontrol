@@ -67,6 +67,58 @@ lifts. Touching again interrupts inertia; cancellation and removal from the
 window stop motion immediately. Setting a different value programmatically also
 interrupts inertia, while values supplied during a drag are ignored.
 
+#### Text and icons
+
+Add text below a progress slider, or icons beside a volume slider:
+
+```swift
+SliderControlView(value: $playbackProgress, in: 0...duration)
+    .progressLabels(leading: elapsedText, trailing: remainingText)
+
+SliderControlView(value: $volume)
+    .volumeIcons()
+```
+
+Progress labels accept any formatted strings. Keep them in sync with your playback
+state. An optional `ViewBuilder` places custom content between the labels:
+
+```swift
+SliderControlView(value: $playbackProgress, in: 0...duration)
+    .progressLabels(leading: elapsedText, trailing: remainingText) {
+        Button("1×") { /* change playback speed */ }
+    }
+```
+
+Only the text labels grow slightly while dragging. The center content keeps its
+own size and remains interactive. Apply slider color, feedback and continuous
+update modifiers before `.progressLabels(...)` or `.volumeIcons(...)`. These
+variants select `.progress` and `.volume` behavior respectively and support RTL.
+Pass `minimum:` and `maximum:` images to `.volumeIcons(...)` to customize its icons.
+
+UIKit offers the same compositions. The underlying `slider` exposes the existing
+value, target-action, publisher, color and editing callback APIs:
+
+```swift
+let progress = ProgressSliderControl()
+progress.slider.valueRange = 0...240
+progress.slider.value = 86
+progress.leadingText = "1:26"
+progress.trailingText = "−2:34"
+
+let rateButton = UIButton(type: .system)
+rateButton.setTitle("1×", for: .normal)
+progress.centerAccessoryView = rateButton
+
+let volume = VolumeSliderControl()
+volume.slider.value = 0.5
+// Optional: volume.minimumImage / volume.maximumImage
+```
+
+UIKit center views use their intrinsic content size or explicit Auto Layout size
+constraints. The footer accommodates their height without scaling them during
+activation. `SliderControl` also emits `.editingDidBegin` and `.editingDidEnd`
+events alongside `onEditingChanged`.
+
 #### Track color
 
 Slider's track color can be customized by changing the `defaultTrackColor` and the `enlargedTrackColor` properties. By default `enlargedTrackColor` property is set to `nil`, so the slider won't change the track color upon interaction. However, by setting different colors, you can configure the slider to change its track color when user interacts with it.

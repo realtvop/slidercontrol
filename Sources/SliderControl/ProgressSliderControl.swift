@@ -53,11 +53,13 @@ public final class ProgressSliderControl: UIView {
     public override func layoutSubviews() {
         let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
         let direction: UISemanticContentAttribute = isRTL ? .forceRightToLeft : .forceLeftToRight
-        stack.semanticContentAttribute = direction
-        footer.semanticContentAttribute = direction
-        slider.semanticContentAttribute = direction
-        leadingTextLabel.textAlignment = isRTL ? .right : .left
-        trailingTextLabel.textAlignment = isRTL ? .left : .right
+        if stack.semanticContentAttribute != direction {
+            stack.semanticContentAttribute = direction
+            footer.semanticContentAttribute = direction
+            slider.semanticContentAttribute = direction
+            leadingTextLabel.textAlignment = isRTL ? .right : .left
+            trailingTextLabel.textAlignment = isRTL ? .left : .right
+        }
         super.layoutSubviews()
         updateLabelTransforms()
     }
