@@ -74,8 +74,14 @@ public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
     }
 
     public func makeUIView(context: Context) -> SliderControl {
-        let coordinator = context.coordinator
         let control = SliderControl()
+        configure(control)
+        context.coordinator.setup(with: control)
+        return control
+    }
+
+    // Shared with the native volume composition so its icons and track share one animation.
+    func configure(_ control: SliderControl) {
         control.behavior = behavior
         control.isContinuous = isContinuous
         control.feedbackGenerator = feedbackGenerator
@@ -87,8 +93,6 @@ public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
         control.valueRange = Float(valueRange.lowerBound)...Float(valueRange.upperBound)
         control.value = Float(value)
         control.setContentHuggingPriority(.defaultHigh, for: .vertical)
-        coordinator.setup(with: control)
-        return control
     }
 
     public func makeCoordinator() -> Coordinator<T> {
@@ -96,7 +100,11 @@ public struct SliderControlView<T: BinaryFloatingPoint>: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: SliderControl, context: Context) {
-        let hasExternalValueChange = context.coordinator.update(value: $value)
+        let changed = context.coordinator.update(value: $value)
+        update(uiView, hasExternalValueChange: changed)
+    }
+
+    func update(_ uiView: SliderControl, hasExternalValueChange: Bool) {
         uiView.behavior = behavior
         uiView.valueRange = Float(valueRange.lowerBound)...Float(valueRange.upperBound)
         uiView.onEditingChanged = onEditingChanged

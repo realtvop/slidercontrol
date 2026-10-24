@@ -1,5 +1,18 @@
 import Foundation
 
+/// Physical horizontal offsets of the track ends, also used by volume icons.
+struct SliderTrackStretch: Equatable {
+    let minimumOffset: CGFloat
+    let maximumOffset: CGFloat
+
+    static let zero = SliderTrackStretch(amount: 0, edge: 0, layoutDirection: 1)
+
+    init(amount: CGFloat, edge: CGFloat, layoutDirection: CGFloat) {
+        minimumOffset = edge < 0 ? -amount * layoutDirection : 0
+        maximumOffset = edge > 0 ? amount * layoutDirection : 0
+    }
+}
+
 /// Normalized motion, independent of layout and the public value range.
 struct SliderMotion {
     private(set) var position: CGFloat = 0.5

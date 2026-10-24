@@ -2,6 +2,21 @@ import XCTest
 @testable import SliderControl
 
 final class SliderMotionTests: XCTestCase {
+    func testTrackEndOffsetsFollowTheSameStretchInLTRAndRTL() {
+        for direction in [CGFloat(1), -1] {
+            for amount in [CGFloat(8), -0.5, 0] {
+                let minimum = SliderTrackStretch(amount: amount, edge: -1, layoutDirection: direction)
+                XCTAssertEqual(minimum.minimumOffset, -amount * direction)
+                XCTAssertEqual(minimum.maximumOffset, 0)
+                let maximum = SliderTrackStretch(amount: amount, edge: 1, layoutDirection: direction)
+                XCTAssertEqual(maximum.minimumOffset, 0)
+                XCTAssertEqual(maximum.maximumOffset, amount * direction)
+            }
+        }
+        XCTAssertEqual(SliderTrackStretch.zero.minimumOffset, 0)
+        XCTAssertEqual(SliderTrackStretch.zero.maximumOffset, 0)
+    }
+
     func testProgressClampsAndReversesImmediately() {
         var motion = SliderMotion()
         motion.drag(by: 2, allowsOvershoot: false)

@@ -106,6 +106,10 @@ open class SliderControl: UIControl {
     // Lets the SwiftUI wrapper distinguish a stale binding from an external edit.
     var isAnimatingValue: Bool { displayLink != nil }
 
+    // Visual updates must continue even when the value is clamped at a limit.
+    var onTrackStretchChanged: ((SliderTrackStretch) -> Void)?
+    private var trackStretch = SliderTrackStretch.zero
+
     public override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: Self.intrinsicHeight)
     }
@@ -305,12 +309,14 @@ open class SliderControl: UIControl {
         displayLink = nil
         motion.reset(to: normalizedProgress)
         trackView.transform = .identity
+        setTrackStretch(.zero)
     }
 
     private func updateStretch() {
         let width = trackView.bounds.width
         guard behavior == .volume, width > 0 else {
             trackView.transform = .identity
+            setTrackStretch(.zero)
             return
         }
         let stretch = motion.stretch(trackWidth: width)
@@ -319,6 +325,13 @@ open class SliderControl: UIControl {
             d: 1 - min(abs(stretch.amount) / 12, 1) * 0.08,
             tx: stretch.edge * layoutDirection * stretch.amount / 2, ty: 0
         )
+        setTrackStretch(SliderTrackStretch(amount: stretch.amount, edge: stretch.edge, layoutDirection: layoutDirection))
+    }
+
+    private func setTrackStretch(_ stretch: SliderTrackStretch) {
+        guard trackStretch != stretch else { return }
+        trackStretch = stretch
+        onTrackStretchChanged?(stretch)
     }
 
     private func setValue(_ newValue: Float) {

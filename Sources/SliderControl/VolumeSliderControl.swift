@@ -1,6 +1,7 @@
 import UIKit
 
 /// A volume slider flanked by minimum and maximum volume icons.
+/// Each icon follows its track end when that end stretches and springs back.
 /// Configure values, colors and callbacks through `slider`.
 public final class VolumeSliderControl: UIView {
     public let slider = SliderControl()
@@ -45,6 +46,11 @@ public final class VolumeSliderControl: UIView {
 
     private func setup() {
         slider.behavior = .volume
+        slider.onTrackStretchChanged = { [weak self] stretch in
+            // Follow the same per-frame displacement as the track, including its spring return.
+            self?.minimumImageView.transform = CGAffineTransform(translationX: stretch.minimumOffset, y: 0)
+            self?.maximumImageView.transform = CGAffineTransform(translationX: stretch.maximumOffset, y: 0)
+        }
         slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let configuration = UIImage.SymbolConfiguration(pointSize: 14)
         minimumImage = UIImage(systemName: "speaker.fill", withConfiguration: configuration)
